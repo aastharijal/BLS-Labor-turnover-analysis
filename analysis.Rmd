@@ -1,0 +1,848 @@
+---
+title: "U.S. Labor Turnover: Analyzing 15 Years of Change (2009–2024)"
+author: "Aastha Rijal"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+fontsize: 11pt
+mainfont: "Arial"
+geometry: margin=1in
+header-includes:
+  - \usepackage{setspace}
+  - \usepackage{titling}
+  - \setstretch{1}  
+  - \usepackage{fvextra}
+  - \usepackage{upquote}
+  - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
+  - \DefineVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere}
+  - \fvset{breaklines=true, breakanywhere=true, fontsize=\small}
+---
+
+```{=tex}
+\begin{titlepage}
+\centering
+
+\vspace*{1.5in}
+
+{\Large\bfseries
+U.S. Labor Turnover: Analyzing 15 Years of Change (2009–2024) \par}
+
+\vspace*{0.75in}
+
+\vfill
+
+\begin{minipage}{0.85\textwidth}
+\singlespacing
+\noindent\textbf{Abstract}
+
+\vspace{0.5em}
+
+This project analyzes U.S. labor turnover across ten major industries from 2009 to 2024 using monthly data from the "Job Openings and Labor Turnover Survey" (JOLTS). After assembling a combined dataset from the original industry-level files, descriptive trends and year-to-year statistical comparisons were used to study both long-run patterns and short-run disruptions. The results show clear and persistent differences across industries: Retail maintains the highest quits, Construction displays strong cyclical swings, and State and Local Government remains unusually stable. The COVID-19 period stands out sharply in the data, with layoffs surging in early 2020, job openings rebounding in 2021, and quits rising by roughly 35 percent compared to pre-pandemic levels. ANOVA tests confirm that these shifts were statistically meaningful. Taken together, the findings show how labor-market pressures gradually intensified over the 2010s and were dramatically amplified during COVID-19, with recovery patterns that differed widely across industries.
+
+\end{minipage}
+
+\end{titlepage}
+```
+\clearpage
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(readxl)   # to read excel
+library(dplyr)  
+library(tidyr)
+library(ggplot2)
+library(tinytex)
+library(readr)
+library(lubridate)
+main_data <- read_csv("data/main_data.csv")
+
+
+```
+
+# 1) Background and Significance:
+
+Labor turnover (hires, quits, layoffs, and job openings) provides a direct view of how the job market is functioning. These measures help show whether workers are finding new opportunities, whether employers are struggling to hire, and how industries respond to economic shifts. Because turnover is closely tied to business cycles, policy changes, and unexpected disruptions, examining it over time provides valuable insight into the underlying health of the labor market.
+
+This project uses JOLTS data across ten industries from 2009 to 2024 to understand both long-run patterns and short-run shocks. Studying these patterns is important because industries do not respond to economic conditions in the same way; some experience large swings in hiring and layoffs, while others remain stable for long periods.
+
+**The analysis centers on three research questions:**
+
+1.  **How do turnover patterns vary across industries over the last fifteen years?**
+
+2.  **How did COVID-19 alter the relationship between openings, hiring, layoffs, and quits in each sector?**
+
+3.  **Which** **industries experienced workforce shortages or replacement challenges?**
+
+These questions help clarify not only how the U.S. labor market changed, but also which sectors faced the greatest challenges during periods of disruption.
+
+# 2) Data Collection:
+
+JOLTS data are not provided as a single combined data set. Each industry and each rate must be downloaded separately from the Bureau of Labor Statistics. For this project, every file was individually downloaded for all four measures—hires, quits, layoffs, and openings—across all ten industries, covering January 2009 through December 2024.
+
+After the files were downloaded, checks were made to ensure that each industry had complete monthly coverage and consistent date formatting. Next, the files were merged into one dataset with sector, year, month, and all four rates. Building the data set manually ensured proper understanding of how each variable was structured and allowed me to identify missing months or inconsistencies before starting the analysis.
+
+## 2.1 Definition of JOLTS Rates
+
+All variables follow official BLS definitions. JOLTS publishes monthly rates rather than raw counts so that industries of different sizes can be compared. Each rate is defined as:
+
+1.  **Hires Rate:** hires ÷ total employment
+
+2.  **Quits Rate:** quits ÷ total employment
+
+3.  **Layoffs and Discharges Rate:** layoffs ÷ total employment
+
+4.  **Job Openings Rate:** job openings ÷ (total employment + job openings)
+
+Including these standardized rate definitions ensures that turnover patterns are interpreted consistently across sectors and over time.
+
+# 3) Data Preparation:
+
+Once all the data was assembled and cleaned, standardization was done to make comparisons across industries reliable. This included:
+
+-   Converting the month variable into an ordered factor from January to December,
+
+-   Checking for missing or duplicated months,
+
+-   Ensuring that sector names were consistent across files,
+
+-   Confirming that all rates were numeric, and
+
+-   Reshaping the data set into long format to simplify plotting and modeling.
+
+These steps ensured that the final data set provided complete and comparable monthly information for all industries.
+
+# 4) Methods:
+
+## 4.1 Industry Selection
+
+JOLTS provides turnover data for more than two dozen detailed industries. For this project, ten such industries were selected which offer broad coverage of major segments of the U.S. economy, while capturing meaningful differences in turnover patterns, exposure to economic shocks, and staffing pressures. The goal was to compare industries that operate under different labor-market conditions rather than analyze a narrow or highly specific group.
+
+The ten industries were chosen to represent a balanced mix of goods-producing, service-providing, and public-sector employment:
+
+1.  **Construction:** Chosen because it is one of the most cyclical sectors, with turnover that reacts sharply to economic expansion and contraction.
+
+2.  **Durable Goods Manufacturing:** Included to capture capital-intensive production, where layoffs often spike during recessions.
+
+3.  **Non-durable Goods Manufacturing:** Selected as a contrast to durable goods, representing more stable, consumption-based production.
+
+4.  **Retail Trade:** Chosen due to consistently high quits and high turnover, which makes it a useful benchmark for labor mobility.
+
+5.  **Transportation, Warehousing, and Utilities:** Included because it reflects essential supply-chain and infrastructure services that behaved uniquely during COVID-19 disruptions.
+
+6.  **Information**: Selected to represent telecommunications, digital services, and media—sectors with distinct hiring and separation patterns.
+
+7.  **Financial Activities**: Included as a low-turnover, high-stability benchmark sector.
+
+8.  **Professional and Business Services**: Chosen because it is one of the largest service industries, and its turnover trends are influential for the broader labor market.
+
+9.  **Healthcare and Social Assistance:** Selected due to its central role during the pandemic and its well-documented staffing shortages.
+
+10. **State and Local Government**: Included to provide a public-sector comparison, as government turnover is historically lower and less cyclical.
+
+These industries were selected to ensure that the analysis captures a wide range of labor-market behavior, from volatile, high-churn sectors to stable, low-turnover occupations. This diversity strengthens the comparison of hiring, separations, and openings across sectors and provides a clearer understanding of how different parts of the economy responded before, during, and after the COVID-19 pandemic.
+
+## 4.2 Visualizing Monthly Labor-Market Dynamics
+
+To examine how hiring, separations, and job openings evolved over the fifteen-year period, plots were created with each rate month-by-month for all industries. This full-period visualization highlights:
+
+-   Seasonal variation
+
+-   Long-run structural differences (e.g., consistently high turnover in Retail vs. low rates in Government)
+
+-   The sharp disruptions during early 2020
+
+-   The heterogeneous recovery patterns beginning in 2021
+
+Using complete monthly data rather than selected years provides a clearer picture of how each industry behaves under normal conditions and during shocks.
+
+## 4.3 Comparing Trends Over the Full 2009–2024 Period
+
+Because the data set spans fifteen years, patterns become more meaningful when viewed over the entire period rather than in isolated years. Plotting each rate across all months makes structural differences between industries visible, helping identify: the consistent volatility in construction, the stability of government and information, and the high turnover in retail.
+
+Viewing the primary pandemic years (2020 & 2021) relative to the decade before and after provides the necessary context to interpret whether disruptions were temporary anomalies or part of longer-term shifts.
+
+## 4.4 Statistical Comparison Across 2019, 2020, and 2021
+
+To formally evaluate whether labor-market conditions shifted during the pandemic, one-way ANOVA test was used to compare 2019 (pre-pandemic), 2020 (during), and 2021 (post-pandemic). Two key measures were evaluated:
+
+-   **openings − layoffs** (indicator of labor-demand pressure)
+
+-   **hires − layoffs** (indicator of whether hiring kept pace with job separation)
+
+ANOVA allows for a direct statistical test of whether the visual differences observed in the graphs correspond to significant changes in average conditions across the three periods. For each industry, sector-specific models were tested to capture variation in how industries experienced the pandemic.
+
+## 4.5 Constructing Measures of Workforce Pressure and Labor Demand
+
+To better understand staffing pressures faced by employers, two additional variables were constructed:
+
+-   **Net workforce change = (**quits + layoffs) − hires
+
+    -   Indicates whether workers were being replaced as quickly as they were leaving.
+
+-   **Labor demand gap =** openings − hires
+
+    -   Indicates whether employers had more open positions than they were able to fill
+
+Tracking these measures from 2009-2024 helps identify which industries experienced retention challenges, recruitment shortages, or periods where separations temporarily exceeded hiring.
+
+# 5) Results:
+
+This section reports descriptive statistics, sector-level patterns, yearly averages, and inferential tests conducted to evaluate differences across years. All interpretations are based on observed values and do not extend beyond the scope of the data.
+
+## 5.1 Descriptive Statistics
+
+The data set includes monthly turnover rates for ten industries from 2009–2024 with four measures: hires, quits, layoffs, and job openings. Across the full period, mean rates fall between approximately 1–6%, depending on sector and measure. Retail Trade, Construction, and Professional and Business Services show the highest overall means, while State and Local Government and Information display the lowest. These descriptive values provide a baseline for interpreting sector differences.
+
+*(Summary statistics appear in the Appendix.)*
+
+## 5.2 Sector-Level Turnover Patterns (2009–2024)
+
+Sector-level plots show distinct long-run differences across industries. High-turnover sectors such as Retail Trade, Transportation and Warehousing, and Professional and Business Services exhibit pronounced movements in hires and quits and larger layoff spikes in early 2020. Information and Financial Activities show small changes and low turnover throughout the period. Healthcare displays elevated openings after 2021, indicating persistent staffing pressure.
+
+*(Full sector figures are provided in the Appendix.)*
+
+### 5.2.1 Construction
+
+Construction *(shown in Figure 1)* displays the highest cyclical variation. Hires remained near 4–6% through the 2010s and consistently exceeded openings, quits, and layoffs. Layoffs increased sharply in 2020, reaching values near 8%. Hires and openings rose again in 2021–2022 and stabilized by 2023–2024.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in the Construction sector (2009-2024)** \\linebreak This figure shows monthly hires, quits, layoffs, and job openings for the Construction sector. Rates exhibit strong cyclical variation and a sharp layoff spike in early 2020"}
+pivot_longer(subset(main_data, sector == "Construction"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ) %>% 
+  #mutate(Month = match(month, month.abb)) %>%
+  mutate(month = factor(month,levels = month.abb)  ) %>%
+  ggplot(aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Construction JOLTS Rates from 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+### 5.2.2 State and Local Government
+
+Turnover in State and Local Government remains low throughout the full period. *(shown in Figure 2)* Hires and openings stay near 1–2%, and quits and layoffs remain below 1%. Rates show minimal change in 2020 and exhibit only a small increase in openings in 2021–2022. This is the most stable sector across all measures.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in State and Local Government (2009–2024).** \\linebreak This figure displays monthly turnover rates for State and Local Government, which remain low and stable across the entire period  "}
+
+pivot_longer(subset(main_data, sector == "State and Local Government"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ) %>% 
+    mutate(month = factor(month,levels = month.abb)  ) %>%
+  ggplot(aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "State and Local Government JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+## 5.3 Yearly Mean Turnover Trends
+
+The yearly mean rates summarize how industry turnover evolved across the fifteen-year period and highlight key differences that are less visible in the monthly plots
+
+### 5.3.1 Quits
+
+Retail Trade and Professional and Business Services record the highest mean quits rates, while State and Local Government and Information remain lowest. A noticeable increase appears in 2021–2022, with quits rising approximately 35% compared to pre-2020 averages. *(shown in Figure 3)*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Yearly mean quits rate across ten sectors (2009-2024)** \\linebreak Retail, Professional Services, and Construction display the highest rates, while Government and Information remain lowest"}
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+quits_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_quits_rate = round(mean(quits, na.rm = TRUE), 2))
+
+ggplot(quits_mean, aes(x = Year, y = mean_quits_rate, color = sector, group = sector)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 1) +
+  labs(
+    title = "Yearly Mean Quits Rate by Sector (2009-2024)",
+    x = "Year",
+    y = "Mean quits rate") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face ="bold")) +
+  guides(color = guide_legend(ncol = 2))+ # makes legend table
+  scale_color_manual(values = rang)
+
+```
+
+### 5.3.2 Hires
+
+Hires increase gradually through the 2010s, led by Construction, Professional and Business Services, and Retail. A clear rise appears in 2020–2021, followed by declines toward pre-pandemic levels in 2023–2024. Government and Financial Activities remain lowest throughout. *(shown in Figure 4)*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Yearly mean  hiring rates across ten sectors (2009-2024)** \\linebreak Hiring increased gradually during the 2010s, rose sharply in 2020–2021, and declined again after 2022"}
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+hires_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_hires_rate = round(mean(hires, na.rm = TRUE), 2))
+
+ggplot(hires_mean, aes(x = Year, y = mean_hires_rate, color = sector, group = sector)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 1) +
+  labs(
+    title = "Yearly Mean Hires Rate by Sector (2009-2024)",
+    x = "Year",
+    y = "Mean hires rate") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face ="bold")) +
+  guides(color = guide_legend(ncol = 2))+   # makes legend table
+  scale_color_manual(values = rang)
+
+```
+
+### 5.3.3 Job Openings
+
+Job openings increase steadily through the 2010s and rise sharply in 2021–2022 across most sectors. Professional Services, Healthcare, and Retail show the largest increases. Openings decline gradually after 2022. State and Local Government remains the lowest throughout. *(shown in Figure 5)*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Yearly mean job openings rates across ten sectors (2009-2024)** \\linebreak Openings rise sharply in 2021–2022 for most industries, especially Healthcare and Professional Services." }
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+openings_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_openings_rate = round(mean(openings, na.rm = TRUE), 2))
+
+ggplot(openings_mean, aes(x = Year, y = mean_openings_rate, color = sector, group = sector)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 1) +
+  labs(
+    title = "Yearly Mean Openings Rate by Sector (2009-2024)",
+    x = "Year",
+    y = "Mean openings rate") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face ="bold")) +
+  guides(color = guide_legend(ncol = 2))+ # makes legend table
+  scale_color_manual(values = rang)
+
+
+```
+
+### 5.3.4 Layoffs
+
+Layoffs remain low and stable across most years, except for a clear spike in 2020. Construction shows the largest cyclical movement. *(shown in Figure 6)*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Yearly mean layoffs rate by sector (2009-2024)** \\linebreak A distinct spike appears in 2020 across nearly all industries, followed by rapid normalization." }
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+layoffs_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_layoffs_rate = round(mean(layoffs, na.rm = TRUE), 2))
+
+ggplot(layoffs_mean, aes(x = Year, y = mean_layoffs_rate, color = sector, group = sector)) +
+  geom_line(size = 0.5) +
+  geom_point(size = 1) +
+  labs(
+    title = "Yearly Mean Layoffs Rate by Sector (2009-2024)",
+    x = "Year",
+    y = "Mean layoffs rate") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face ="bold")) +
+  guides(color = guide_legend(ncol = 2))+   # makes legend table
+  scale_color_manual(values = rang)
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+openings_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_openings_rate = round(mean(openings, na.rm = TRUE), 2))
+
+layoffs_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_layoffs_rate = round(mean(layoffs, na.rm = TRUE), 2))
+
+hires_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_hires_rate = round(mean(hires, na.rm = TRUE), 2))
+
+quits_mean <- main_data %>%
+  group_by(sector, Year) %>%
+  summarise(mean_quits_rate = round(mean(quits, na.rm = TRUE), 2))
+
+yearly_means <- openings_mean %>%
+  left_join(layoffs_mean, by = c("sector", "Year")) %>%
+  left_join(hires_mean, by = c("sector", "Year")) %>%
+  left_join(quits_mean, by = c("sector", "Year")) %>%
+  rename(avg_openings = mean_openings_rate, avg_layoffs= mean_layoffs_rate, avg_hires = mean_hires_rate, avg_quits = mean_quits_rate)
+```
+
+## 5.4 COVID-19 Disruptions: Sector Dynamics and ANOVA Results
+
+### 5.4.1 Descriptive Patterns (2019–2021)
+
+Patterns in the monthly data show consistent short-run disruptions across sectors during the pandemic period. Layoffs increased sharply in early 2020, with Construction, Retail Trade, and Transportation reaching monthly values of approximately 7–8 percent. Hiring declined during these same months, and openings fell in industries that temporarily halted operations.
+
+In 2021, all three measures reverse: job openings increase across most sectors, quits rise substantially, and hiring returns toward or above 2019 levels. The average quits rate increases from 1.58 percent in 2009–2019 to 2.13 percent in 2020–2024, a 35 percent increase.
+
+### 5.4.2 ANOVA on Openings − Layoffs (Labor-Demand Pressure)
+
+A one-way ANOVA, tested whether openings − layoffs differed across 2019, 2020, and 2021 for each sector. Across all ten sectors, the effect of year is statistically significant (p \< 0.01), indicating measurable differences across the three periods.
+
+**Sector-wise ANOVA results (openings − layoffs):**
+
+1.  [Construction:]{.underline} F(2,33) = 6.20, p = 0.005
+
+2.  [Durable Goods Manufacturing:]{.underline} F(2,33) = 21.90, p \< 0.000001
+
+3.  [Non-Durable Goods Manufacturing:]{.underline} F(2,33) = 29.28, p \< 0.000001
+
+4.  [Retail Trade:]{.underline} F(2,33) = 8.36, p = 0.001
+
+5.  [Transportation, Warehousing, Utilities:]{.underline} F(2,33) = 20.55, p \< 0.000001
+
+6.  [Information:]{.underline} F(2,33) = 12.20, p = 0.0001
+
+7.  [Financial Activities:]{.underline} F(2,33) = 13.26, p \< 0.0001
+
+8.  [Professional and Business Services:]{.underline} F(2,33) = 20.52, p \< 0.000001
+
+9.  [Healthcare and Social Assistance:]{.underline} F(2,33) = 17.42, p \< 0.00001
+
+10. [State and Local Government:]{.underline} F(2,33) = 36.40, p \< 0.00000001
+
+These results confirm that openings−layoffs values differed significantly across 2019, 2020, and 2021 for every industry.
+
+### 5.4.3 Tukey Post-Hoc Comparisons (Openings − Layoffs)
+
+Tukey pairwise tests were performed to identify which year-to-year comparisons account for the significant differences.
+
+-   **2020 vs 2019:**
+
+    -   Mean difference = −0.358
+
+    -   95% CI: −0.871 to −0.048
+
+    -   p = 0.0219
+
+-   **2021 vs 2019:**
+
+    -   Mean difference = 0.192
+
+    -   95% CI: −0.121 to 0.505
+
+    -   p = 0.302
+
+-   **2021 vs 2020:**
+
+    -   Mean difference = 0.550
+
+    -   95% CI: 0.237 to 0.863
+
+    -   p = 0.00039
+
+These comparisons show a significant decline from 2019 to 2020 and a significant increase from 2020 to 2021.
+
+### 5.4.4 ANOVA on Hires − Layoffs (Workforce Replacement)
+
+A second set of one-way ANOVA tests assessed whether hires − layoffs differed across years. Results show mixed evidence, with significant differences in several industries but not all.
+
+**Sector-wise ANOVA results (hires − layoffs):**
+
+1.  [Construction:]{.underline} F(2,33) = 0.44, p = 0.649
+
+2.  [Durable Goods Manufacturing:]{.underline} F(2,33) = 3.31, p = 0.049
+
+3.  [Non-Durable Goods Manufacturing:]{.underline} F(2,33) = 3.99, p = 0.028
+
+4.  [Retail Trade]{.underline}: F(2,33) = 2.09, p = 0.140
+
+5.  [Transportation, Warehousing, Utilities:]{.underline} F(2,33) = 1.20, p = 0.314
+
+6.  [Information:]{.underline} F(2,33) = 4.23, p = 0.023
+
+7.  [Financial Activities:]{.underline} F(2,33) = 2.89, p = 0.070
+
+8.  [Professional and Business Services:]{.underline} F(2,33) = 4.35, p = 0.021
+
+9.  [Healthcare and Social Assistance:]{.underline} F(2,33) = 1.38, p = 0.266
+
+10. [State and Local Government:]{.underline} F(2,33) = 9.59, p = 0.0005
+
+Significant year effects appear primarily in manufacturing, information, business services, and state/local government.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+#BEFORE
+before <- pivot_longer(
+    subset(main_data, Year == 2019),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value") %>%
+   mutate(month = factor(month,levels = month.abb)  ) %>%
+  ggplot(aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~ sector, labeller = label_wrap_gen(width = 20), nrow=2) +
+  ylim(0, 12) +
+  labs(title = "JOLTS Rates before COVID-19 (2019)") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 7, angle = 90, vjust = 0.5, hjust = 1))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+during <- pivot_longer(
+    subset(main_data, Year == 2020),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value") %>%
+   mutate(month = factor(month,levels = month.abb)  ) %>%
+  ggplot(aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~ sector, labeller = label_wrap_gen(width = 20), nrow=2) +
+  ylim(0, 12) +
+  labs(title = "JOLTS Rates during COVID-19 (2020)") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme_minimal()+
+  theme(axis.text.x = element_text(size = 7, angle = 90, vjust = 0.5, hjust = 1))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#AFTER 
+after <- pivot_longer(
+    subset(main_data, Year == 2021),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value") %>%
+   mutate(month = factor(month,levels = month.abb)  ) %>%
+  ggplot(aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~ sector, labeller = label_wrap_gen(width = 20), nrow=2) +
+  ylim(0, 12) +
+  labs(title = "JOLTS Rates after COVID-19 (2021)") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme_minimal()+
+  theme(axis.text.x = element_text(size=7, angle = 90, vjust = 0.5, hjust = 1))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+
+```
+
+```{r echo=FALSE, fig.cap="**Sector-Level JOLTS Rates Before, During, and After COVID-19 (2019–2021)**\\linebreak This figure compares sector turnover patterns across 2019, 2020, and 2021, showing disruptions during the shutdown and rebounds during reopening", fig.width=10, fig.height=12}
+library(patchwork)
+before/during/after
+
+#library(ggpubr)
+
+#ggarrange(before, after, nrow=2, height=8.5, width=11, units="in")
+#/after
+
+#fig.width = 18, fig.height= 28, 
+
+```
+
+## 5.5 Net Workforce Change Across Industries
+
+Net workforce change (shown in Figure 8), defined as quits + layoffs − hires, summarizes whether industries replaced workers at the same pace they lost them. From 2009–2014, nearly all sectors recorded values below −0.5, indicating that hires consistently exceeded separations during the post-recession expansion. Between 2015–2019, values shifted toward approximately −0.3 as quits increased during a tightening labor market.
+
+The largest movements appear in 2020–2021. Information shows the largest swing, rising above 0 briefly before declining, while Durable Goods Manufacturing and Healthcare also record positive values (approximately +0.3 to +0.4) during months when separations temporarily exceeded hires. By 2023–2024, most sectors return near −0.2, remaining above early-2010s levels. State and Local Government remains the most stable throughout the entire period, consistently between −0.3 and −0.5.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Net workforce change (quits + layoffs − hires), across sectors from 2009–2024.**\\linebreak Values show strong recovery patterns and reveal which industries replaced workers quickly or struggled with retention" }
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+yearly_means %>%
+  mutate(difference=avg_quits+avg_layoffs-avg_hires) %>%
+  ggplot(aes(x=Year, y=difference)) +
+  geom_line(aes(color=sector)) +
+  labs(title = "Net workforce change by Sector(2009-2024)") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+  scale_color_manual(values = rang)+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold"))+
+  guides(color = guide_legend(ncol = 2 ))
+
+```
+
+## 5.6 Labor Demand Gap: Job Openings vs. Hires
+
+The difference between job openings and hires *(shown in Figure 9)* provides an indicator of unmet labor demand. From 2009–2014, most sectors remain near 0, suggesting that hiring generally kept pace with posted openings during the early recovery period.
+
+Between 2015 and 2019, small positive gaps emerge in Healthcare, Financial Activities, and Information, reflecting increasing labor demand in these industries. After 2020, gaps widen substantially and remain elevated through 2024. Healthcare displays the largest increases, reaching differences near 5 percentage points in some years. Information and Financial Activities also maintain persistently positive values.
+
+Construction and Retail remain near or below 0 for most of the period, indicating that hiring kept closer pace with openings despite higher turnover.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Labor demand gap for ten industries from 2009–2024, computed as openings-hires.**\\linebreak Healthcare, Information, and Finance show widening gaps after 2015, with shortages intensifying post-2020"}
+
+rang<- c("#1F77B4", "#D62728", "#2CA02C", "#9467BD","#8C564B", "#E377C2", "#7F7F7F", "#BCBD22","#17BECF", "#FF7F0E" )
+
+
+yearly_means %>%
+  mutate(difference=avg_openings-avg_hires) %>%
+  ggplot(aes(x=Year, y=difference)) +
+  geom_line(aes(color=sector))  +
+  labs(title = "Labor Demand Gap:Job Openings vs Hires (2009-2024)") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+  scale_color_manual(values = rang)+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) +
+  guides(color = guide_legend(ncol = 2))
+
+```
+
+# 6) Discussion:
+
+The goal of this project was to understand how U.S. labor turnover changed across major industries from 2009–2024 and to examine long-run sector differences, the effects of the COVID-19 pandemic, and the extent to which industries experienced sustained workforce shortages. The results from the descriptive statistics, sector-level plots, yearly means, and ANOVA tests collectively address these questions and provide a coherent picture of labor-market behavior over fifteen years.
+
+## 6.1 Long-run Sector Differences
+
+The first research question asked how turnover patterns vary across industries. The findings from the descriptive statistics and sector-level plots show clear and persistent differences across the ten sectors. High-turnover industries—including Retail Trade, Construction, and Professional and Business Services—consistently report higher hires and quits (often between 4–6%), while low-turnover sectors such as Information and State and Local Government remain near 1–2% for hires and openings and under 1% for quits and layoffs throughout the entire period. These results align with well-known patterns in labor turnover, where jobs in retail and service sectors typically involve shorter job tenure and higher voluntary movement. While public-sector roles tend to offer stability, structured compensation, and lower mobility. The observed patterns therefore reinforce the general structure of the U.S. labor market described in prior literature.
+
+Construction’s patterns *(shown in Figure 1)* illustrate these structural differences clearly. The sector shows the highest cyclical variation, with hires frequently exceeding 5% during the expansion years and layoffs reaching nearly 8% in the early months of 2020.
+
+State and Local Government *(shown in Figure 2)*, by contrast, remains the most stable sector, with all measures showing minimal variation even during the pandemic. These contrasting examples support the interpretation that underlying industry characteristics strongly shape turnover behavior over time.
+
+## 6.2 COVID-19 Disruptions
+
+The second research question examined how COVID-19 altered turnover dynamics across industries. The descriptive patterns for 2019–2021 show the most substantial short-run disruptions in the entire fifteen-year data set. *(shown in Figure 7)* In early 2020, monthly layoff rates rose sharply across nearly every sector, particularly in Construction, Retail Trade, and Transportation, where values reached approximately seven to eight percent. Hiring declined at the same time, and job openings fell in industries that suspended operations during the shutdown period. These patterns closely align with national evidence documenting the immediate contraction of economic activity in the early months of the pandemic.
+
+The reopening phase in 2021 shows a pronounced reversal of these trends. Job openings increased across nearly all industries, and quits rose strongly, consistent with the widely reported “Great Resignation.” In this data set, the average quits rate rose from 1.58 percent during 2009–2019 to 2.13 percent during 2020–2024, representing roughly a 35 percent increase. Hiring also returned toward or above pre-pandemic levels, especially in sectors with high labor demand such as Healthcare, Retail Trade, and Professional and Business Services.
+
+The ANOVA results confirm that these observed shifts represent statistically meaningful changes rather than typical year-to-year fluctuations. Using openings minus layoffs as an indicator of labor-demand pressure, all ten sectors show significant differences across 2019, 2020, and 2021 (p \< 0.01). Tukey comparisons indicate that 2021 differs significantly from both prior years, while 2019 and 2020 do not differ significantly. This pattern mirrors the descriptive evidence: the major structural break in turnover behavior occurred not during the shutdown months themselves but during the rebound in labor demand in 2021.
+
+Taken together, the descriptive plots and inferential results demonstrate two distinct phases of pandemic-era disruption: a sudden contraction in early 2020 followed by an uneven but substantial recovery beginning in 2021. These findings show that COVID-19 produced rapid, sector-specific shocks that temporarily altered hiring, separations, and labor-demand pressures in ways not observed elsewhere in the data set.
+
+## 6.3 Workforce Replacement and Labor Shortages
+
+The third research question examined whether industries faced sustained challenges in replacing workers or meeting labor demand. The two difference measures—net workforce change and the labor-demand gap, together provide a consistent picture of where recruitment and retention pressures were most persistent.
+
+The net workforce change measure (quits + layoffs − hires) indicates that from 2009–2014, nearly all industries showed values below –0.5, meaning that hiring consistently exceeded separations as the economy expanded after the recession. *(shown in Figure 8)* Between 2015 and 2019, these values rose toward –0.3 across most sectors, reflecting a tighter labor market in which quits increased and retention became more challenging. The most pronounced movements appear in 2020–2021, when sectors such as Information, Durable Goods Manufacturing, and Healthcare briefly recorded positive values. These temporary positive values show periods in which separations exceeded hires, consistent with well-documented staffing disruptions during the pandemic, particularly in technology-oriented industries and healthcare settings.
+
+The labor-demand gap (openings − hires) reinforces these patterns. From 2009–2014, most industries remained near zero, suggesting that hiring kept pace with job postings. *(shown in Figure 9)* Beginning in 2015, small positive gaps emerged in Healthcare, Information, and Financial Activities, indicating increasing demand for specialized skills. After 2020, these gaps widened sharply and remained elevated through 2024. Healthcare, for example, approached a five-percentage-point gap during 2021–2022, reflecting the strain associated with rising patient loads, burnout, and shortages in clinical roles. Information and Finance also recorded sustained positive gaps, consistent with heightened demand for digital services, remote-work infrastructure, and finance-related occupations during and after the pandemic.
+
+In contrast, Construction and Retail remained near or below zero across most years, indicating that despite high turnover, employers generally filled posted openings at rates similar to their labor demand. These sectors show high mobility but comparatively fewer long-term hiring shortages.
+
+Taken together, both measures show that labor shortages intensified after the mid-2010s and were amplified by pandemic-era disruptions. The results highlight clear differences across sectors: high-skill industries such as Healthcare, Information, and Financial Activities experienced the most persistent recruitment constraints, while sectors such as Construction and Retail managed to maintain closer alignment between openings and hires. These findings help clarify where workforce pressures were most concentrated and how industry characteristics shaped employers’ ability to replace workers during a period of rapid economic change.
+
+# 7) Limitations and Future Directions:
+
+This analysis uses sector-level data, which masks variation across regions, occupations, and firm sizes. Future work could incorporate geographic detail or examine occupation-specific trends to understand which workers experienced the greatest disruption. The descriptive methods used here identify broad patterns but do not provide causal estimates; future analysis could use regression or structural models to isolate the impact of specific shocks or policy changes. Finally, integrating wage data, vacancy duration, and worker demographic characteristics would provide a more complete picture of labor market adjustment.
+
+# 8) Generative AI Use Statement
+
+Some sections of this paper were refined with the assistance of generative AI tools for minor editing and clarity improvements.
+
+# 9) References
+
+-   **Bureau of Labor Statistics.** (2024). *Job Openings and Labor Turnover Survey (JOLTS).* U.S. Department of Labor. Retrieved from <https://www.bls.gov/jlt/>
+
+-   **Bureau of Labor Statistics.** (2022). *JOLTS Technical Notes.* U.S. Department of Labor. Retrieved from <https://www.bls.gov/jlt/jltdef.htm>
+
+# 10) Appendix
+
+```{r}
+summary(main_data)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Durable Goods Manufacturing (2009-2024)** "}
+main_data$month <- factor(main_data$month,
+                          levels = month.abb)
+ggplot(
+  pivot_longer(subset(main_data, sector == "Durable Goods Manufacturing"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Durable Goods Manufacturing JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Non-Durable Goods Manufacturing (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Non-Durable Goods Manufacturing"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Non-Durable Goods Manufacturing JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Retail Trade (2009-2024)** "}
+
+ggplot(
+  pivot_longer(subset(main_data, sector == "Retail Trade"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+ scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Retail Trade JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Transportation, Warehousing and Utilities (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Transportation, Warehousing and Utilities"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Transportation, Warehousing, and Utilities JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Information (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Information"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Information JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Financial Activities (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Financial Activities"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Financial Activities JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Professional and Business Services (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Professional and Business Services"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Professional and Business Services JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="**Monthly JOLTS turnover rates in Healthcare and Social Assistance (2009-2024)** "}
+ggplot(
+  pivot_longer(subset(main_data, sector == "Healthcare and Social Assistance"),
+    cols = c(hires, openings, layoffs, quits),
+    names_to = "metric", values_to = "value" ),
+  aes(x = month, y = value, color = metric, group = metric)) +
+  geom_line() +
+  facet_wrap(~Year)+
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2))+
+  labs(title = "Healthcare and Social Assistance JOLTS Rates in 2009-2024",
+       x = "Month", y = "Rate") +
+  scale_color_manual(values = c("darkblue", "orchid", "chartreuse4", "red")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 7 ))+
+  theme(axis.text.y = element_text(size = 6 ))+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data_covid <- main_data %>%
+  filter(Year %in% c(2019, 2020, 2021)) %>%
+  mutate(diff_openings_layoffs = openings - layoffs)
+
+anova_result <- aov(diff_openings_layoffs ~ factor(Year), data = data_covid)
+summary(anova_result)
+
+```
+
+```{r echo=FALSE}
+#in openings - layoffs
+sectors <- unique(data_covid$sector)
+for (s in sectors) {cat("\nSector:", s, "\n")
+  model <- aov((openings - layoffs) ~ factor(Year),
+               data = subset(data_covid, sector == s))
+  print(summary(model))}
+```
+
+```{r echo=FALSE}
+#tukey add
+print(TukeyHSD(model))
+```
+
+```{r echo=FALSE}
+#for hires-layoffs
+sectors <- unique(data_covid$sector)
+for (s in sectors) {cat("\nSector:", s, "\n")
+   model1 <- aov((hires - layoffs) ~ factor(Year),
+               data = subset(data_covid, sector == s))
+  
+  print(summary(model1))}
+
+```
+
+```{r echo=FALSE}
+#tukey add
+print(TukeyHSD(model1))
+```
