@@ -17,4 +17,4 @@ Source: [BLS JOLTS](https://www.bls.gov/jlt/) — each series must be downloaded
 
 Place the combined file here as `main_data.csv` with columns: `sector, Year, month, hires, quits, layoffs, openings`.
 
-`main_data.csv` is not included in this repo — add your own copy locally (or re-download from BLS) before knitting `analysis.Rmd`.
+`main_data.csv` is included in this repo — but you may add your own copy locally (or re-download from BLS) before knitting `analysis.Rmd`.
